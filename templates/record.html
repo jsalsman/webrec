@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Record Audio</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/static/recbutton.jpg">
+    <script src="/static/RecordRTC.js"></script>
+    <script src="/static/hark.js"></script>
+    <script src="/static/soundmeter.js"></script>
+</head>
+<body>
+    <h1>Record Audio with Stop on Silence</h1>
+    
+    <button id="start" style="font-size: 180%;">Start Recording</button>
+    &nbsp;&nbsp;
+    <button id="startOver" style="font-size: 180%; display: none;">Start Over</button>
+    
+    <br><br>
+    <meter id="instant" high="0.25" max="1" value="0" style="width: 95%;"></meter>
+    <br><br>
+    
+    <div style="font-size: 150%;">
+        Stop after:
+        <label><input type="radio" name="silence_duration" value="1">1,</label>
+        <label><input type="radio" name="silence_duration" value="2" checked>2,</label> or
+        <label><input type="radio" name="silence_duration" value="3">3 seconds</label>
+        of silence.
+    </div>
+
+    <script>
+        var recorder, stopped_speaking_timeout;
+        var silence_secs; // VAD silence delay
+        var isRecording = false;
+        let meterRefresh = null;
+
+        document.getElementById('start').onclick = function() {
+            if (!isRecording) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        };
+
+        function startRecording() {
+            if (!window.audioContext) {
+                try {
+                    window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                    window.audioContext = new AudioContext();
+                } catch (e) {
+                    alert('Web Audio API not supported.');
+                    return;
+                }
+            }
+
+            silence_secs = document.querySelector('input[name="silence_duration"]:checked').value;
+            
+            navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(function(stream) {
+                window.stream = stream;
+
+                recorder = RecordRTC(stream, {
+                    type: 'audio',
+                    mimeType: 'audio/wav',
+                    recorderType: StereoAudioRecorder,
+                    numberOfAudioChannels: 1  // mono
+                });
+
+                var speechEvents = hark(stream, {});
+                speechEvents.on('speaking', function() {
+                    clearTimeout(stopped_speaking_timeout);
+                });
+
+                speechEvents.on('stopped_speaking', stopRecordingAfterSilence);
+
+                const soundMeter = window.soundMeter = new SoundMeter(window.audioContext);
+                soundMeter.connectToSource(stream, function(e) {
+                    if (e) {
+                        alert(e);
+                        return;
+                    }
+                    meterRefresh = setInterval(() => {
+                        console.log('Instant Value:', soundMeter.instant.toFixed(2)); // For DEBUGGING
+                        document.getElementById('instant').value = soundMeter.instant.toFixed(2);
+                    }, 200);
+                });
+
+                recorder.startRecording();
+                isRecording = true;
+
+                document.getElementById('start').textContent = 'End Recording';
+                document.getElementById('startOver').style.display = 'inline';
+                var radioButtons = document.querySelectorAll('input[name="silence_duration"]');
+                radioButtons.forEach(function(radioButton) {
+                    radioButton.disabled = true;
+                });
+            });
+        }
+
+        document.getElementById('startOver').onclick = function() {
+            if (recorder && isRecording) {
+                recorder.reset();
+                startRecording();
+            }
+        };
+
+        function stopRecordingAfterSilence() {
+            stopped_speaking_timeout = setTimeout(stopRecording, silence_secs * 1000);
+        }
+
+        function stopRecording() {
+            recorder.stopRecording(function() {
+                var blob = recorder.getBlob();
+                sendAudioToServer(blob);
+            });
+            document.getElementById('start').disabled = true;
+            document.getElementById('startOver').disabled = true;
+            isRecording = false;
+        }
+        
+        function sendAudioToServer(blob) {
+            var formData = new FormData();
+            formData.append('audio', blob, 'audio.wav');
+            fetch('/upload-audio', {
+                method: 'POST',
+                body: formData
+            }).then(response => {
+                if (response.ok) {
+                    window.location.href = response.url;
+                }
+            });
+        }
+    </script>
+    
+    <br>
+    Python Flask and JavaScript source is
+    <a href="https://replit.com/@jsalsman/WebRTCaudio">on Replit.</a>
+</body>
+</html>
