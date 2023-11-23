@@ -28,8 +28,8 @@ def upload_audio():
         # https://pysox.readthedocs.io/en/latest/api.html#sox.transform.Transformer.silence
         # TODO: probably need silence_threshold > 0.1 default?
 
-        #tfm.vad(location=1)   # voice activity detection
-        #tfm.vad(location=-1)  # ...and from end  
+        #tfm.vad(location=1, normalize=False)   # voice activity detection
+        #tfm.vad(location=-1, normalize=False)  # ...and from end  
         # https://pysox.readthedocs.io/en/latest/api.html#sox.transform.Transformer.vad
                
         tfm.build("audio.raw", "audio.wav")
