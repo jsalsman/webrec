@@ -110,9 +110,9 @@
         stream = await navigator.mediaDevices.getUserMedia(
           { audio: {
             echoCancellation: false,
-            autoGainControl: false,   // TODO: try
-            noiseSuppression: false,  // TODO: try
-            latency: 0},              // TODO?
+            autoGainControl: false,   // TODO: try?
+            noiseSuppression: false,  // try!
+            latency: 0},              // ???
            video: false });
         
         const micSourceNode = new MediaStreamAudioSourceNode(context,
