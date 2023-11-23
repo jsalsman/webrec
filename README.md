@@ -6,6 +6,5 @@ run: https://webrec.replit.app
 dev: https://replit.com/@jsalsman/webrec
 
 # To do
-- Better level scaling than roots
 - Button(s) are too wide on iPhone Safari
   - reduced but check a recording screeenshot with someone on iPhone
