@@ -5,7 +5,7 @@
   <title>webrec: Record and Upload Audio</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- maybe try shrink-to-fit=no and/or viewport-fit=cover for mobile -->
-  <link rel="icon" href="/static/recbutton.jpg">
+  <link rel="icon" href="/static/microphone.png">
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.7/dist/bundle.min.js"></script>
 </head>
@@ -44,7 +44,7 @@
     var stream, recorder = null, isRecording = false;
     var vad, stopped_speaking_timeout = null;  // VAD timeout
 
-    //window.onload = async function() {  
+    window.onload = async function() {  
       // Make sure the browser has audio
       if (!window.audioContext) {
         try {
@@ -103,7 +103,7 @@
           }
         }
       }
-    //}
+    }
 
     async function initRecorder() {
       try {
