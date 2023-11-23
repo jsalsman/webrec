@@ -29,8 +29,7 @@
     min="0" max="60" high="55" value="0" style="width: 180px;"></meter>
   <br><br>
 
-  <button id="start" style="font-size: 150%;" disabled>Checking Mic 
-    Permission....</button>
+  <button id="start" style="font-size: 150%;" disabled>Initializing...</button>
   &nbsp;
   <span id="safari" style="display: none;"><h3>Apple Safari users <a
     href="https://support.apple.com/guide/mac-help/control-access-to-the-microphone-on-mac-mchla1b1e1fe/mac"
@@ -51,56 +50,65 @@
           window.AudioContext = 
             window.AudioContext || window.webkitAudioContext;
           context = new AudioContext({ sampleRate: 16000 });
-          gotContext = true;
+          if (context.state === 'running') {
+            gotContext = true;
+          } else {            
+            // AudioContext is suspended, needs a click
+            document.getElementById('start').textContent = 'Detect Audio Levels';
+            document.getElementById('start').disabled = false;
+          }
         } catch (e) {
           document.getElementById('start').style.display = 'none';
           alert('Web audio is not supported on this browser.');
         }
       } else {
         context = new AudioContext({ sampleRate: 16000 });
-        gotContext = true;
+        if (context.state === 'running') {
+          gotContext = true;
+        } else {
+          // needs a click
+          document.getElementById('start').textContent = 'Sense Audio Levels';
+          document.getElementById('start').disabled = false;
+        }
       }
-  
-      if (gotContext) {  
-        // Check if microphone permissions already work
-        navigator.mediaDevices.enumerateDevices().then(async devices => {
-          if (devices.some(device => device.kind === 'audioinput' && device.label)) {
-            // The user has granted microphone access
-            document.getElementById('start').textContent = 'Initializing....';
-            document.getElementById('start').disabled = true;
+      
+      // Check if microphone permissions already work
+      navigator.mediaDevices.enumerateDevices().then(async devices => {
+        if (devices.some(device => device.kind === 'audioinput' && device.label)) {
+          // The user has granted microphone access
+          if (context.state === 'running') {
             await initRecorder();
-          } else {
-            // Microphone access not granted or no microphone available
-            if (/^((?!chrome|android).)*safari/i.test(navigator.userAgent)) {
-              // Apple Safari needs special permissions
-              document.getElementById('safari').style.display = 'inline';
-            }
-            document.getElementById('start').textContent = 'Allow Microphone Use';
-            document.getElementById('start').disabled = false;
           }
-        });
-  
-        document.getElementById('start').addEventListener('click', async () => {
-          if (!recorder) {
-            await initRecorder();
-            document.getElementById('start').disabled = false;
-            document.getElementById('start').textContent = 'Initializing....';
-            await initRecorder();
-            startRecording();  // TODO: needs an if in case of perms grant
-          } else if (!isRecording) {
-            startRecording();
-          } else {
-            stopRecording();
+        } else {
+          // Microphone access not granted or no microphone available
+          if (/^((?!chrome|android).)*safari/i.test(navigator.userAgent)) {
+            // Apple Safari needs special permissions
+            document.getElementById('safari').style.display = 'inline';
           }
-        });
-        
-        document.getElementById('startOver').onclick = function() {
-          if (recorder && isRecording) { 
-            // setRecording: true will reset recorded samples to zero
-            recorder.port.postMessage({ message: 'UPDATE_RECORDING_STATE', 
-                           setRecording: true });
-            clearTimeout(stopped_speaking_timeout);
-          }
+          document.getElementById('start').textContent = 'Allow Microphone Use';
+          document.getElementById('start').disabled = false;
+        }
+      });
+      
+      document.getElementById('start').addEventListener('click', async () => {
+        if (!recorder) {
+          document.getElementById('start').disabled = true;
+          document.getElementById('start').textContent = 'Initializing...';
+          context.resume();
+          await initRecorder();
+        } else if (!isRecording) {
+          startRecording();
+        } else {
+          stopRecording();
+        }
+      });
+      
+      document.getElementById('startOver').onclick = function() {
+        if (recorder && isRecording) { 
+          // setRecording: true will reset recorded samples to zero
+          recorder.port.postMessage({ message: 'UPDATE_RECORDING_STATE', 
+                         setRecording: true });
+          clearTimeout(stopped_speaking_timeout);
         }
       }
     }
@@ -119,13 +127,12 @@
             {mediaStream: stream});
         
         await context.audioWorklet.addModule('/static/recording-processor.js');
-        const recordingProperties = {
+        recorder = new AudioWorkletNode(context, 'recording-processor',
+          { processorOptions: {
             numberOfChannels: 1,
             sampleRate: 16000,
             maxFrameCount: 16000 * 60 // one minute
-        };
-        recorder = new AudioWorkletNode(context, 'recording-processor', 
-          { processorOptions: recordingProperties });
+          }});
   
         await micSourceNode.connect(recorder);
   
@@ -133,11 +140,13 @@
           
           if (event.data.message === 'SHARE_RECORDING_BUFFER') { 
             // Recording ended, upload file
-            console.log('Seconds Recorded: ' + event.data.recordingLength / 16000);
-  
-            let pcmData = new Uint8Array(event.data.recordingLength * 2);
-            for (let index = 0; index < event.data.recordingLength; ++index) {
-              let sample = event.data.buffer[0][index];
+            let length = event.data.recordingLength;
+            console.log('Seconds Recorded: ' + length / 16000);
+
+            let buffer = event.data.buffer[0];
+            let pcmData = new Uint8Array(length * 2);
+            for (let index = 0; index < length; ++index) {
+              let sample = buffer[index];
               sample = sample * 32768.0;
               sample = Math.max(-32768, Math.min(32767, sample));
               pcmData[index * 2] = sample & 255; // low byte, little endian
@@ -177,17 +186,19 @@
   
         // Voice Activity Detection: @ricky0123/vad-web
         // https://www.vad.ricky0123.com/docs/browser/
+        const originalConsoleError = console.error; // TODO: omit in production
+        console.error = () => {}; // supress console error messages from ort.js
         vad = await vad.MicVAD.new({
           additionalAudioConstraints: { audio: stream },
           onSpeechStart: () => {
             console.log('VAD: Speaking started');
-            document.getElementById('vadSpan').innerHTML = 'Speech';
+            document.getElementById('vadSpan').textContent = 'Speech';
             document.getElementById('vadSpan').style.color = 'darkgreen';
             clearTimeout(stopped_speaking_timeout);
           },
           onSpeechEnd: (audio) => {
             console.log('VAD: Speaking stopped');
-            document.getElementById('vadSpan').innerHTML = 'Silence';
+            document.getElementById('vadSpan').textContent = 'Silence';
             document.getElementById('vadSpan').style.color = 'darkgray';
             if (isRecording && document.getElementById('vad').checked) {
               silence_secs = document.querySelector('input[name="sil_dur"]:checked').value;
@@ -197,7 +208,9 @@
             }
           }
         });
+        console.error = originalConsoleError; // TODO: omit in production
         vad.start();
+        
 
         document.getElementById('safari').style.display = 'none';
         
@@ -207,6 +220,7 @@
       } catch (e) {
         console.error('Error initializing recorder:', e);
         document.getElementById('start').style.display = 'none';
+        document.getElementById('startOver').style.display = 'none';
         alert('Error initializing recorder: ' + e);
       }
     }
@@ -218,6 +232,7 @@
       
       document.getElementById('start').textContent = 'End Recording';
       document.getElementById('startOver').style.display = 'inline';
+      document.getElementById('vadSpan').textContent = '';
     }
 
     function stopRecording() {
