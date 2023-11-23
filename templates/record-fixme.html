@@ -32,18 +32,10 @@
   </div>
 
   <script>
-    var isRecording = false, recorder = null, context, stream, buffer, length;
+    var isRecording = false, recorder = null, context, stream;
     var stopped_speaking_timeout = null, speechEvents = null;
 
-    document.getElementById('start').addEventListener('click', async () => {
-      if (!isRecording) {
-        startRecording();
-      } else {
-        stopRecording();
-      }
-    });
-
-    async function startRecording() {
+    async function initAudio() {
       if (!window.audioContext) {
         try {
           window.AudioContext = 
@@ -123,7 +115,7 @@
           } else if (event.data.message === 'UPDATE_VISUALIZERS') {
             //console.log('visualizer gain: ', event.data.gain) // DEBUG
             document.getElementById('level').value = 
-              Math.pow(event.data.gain, 1/3.0).toFixed(2);  // cube root emphasis
+              Math.pow(event.data.gain, 1/3.0).toFixed(2);  // root for emphasis
             
           }
         }
@@ -145,18 +137,42 @@
             clearTimeout(stopped_speaking_timeout);
           }
         });
-
+    
+      } catch (e) {
+        console.error('Error initializing recording:', e);
+        alert('Error initializing recording: ' + e);
+      }
+    }
+    
+    function startRecording() {
         recorder.port.postMessage({ message: 'UPDATE_RECORDING_STATE', 
                        setRecording: true });
         isRecording = true;
         
         document.getElementById('start').textContent = 'End Recording';
         document.getElementById('startOver').style.display = 'inline';
-      } catch (e) {
-        console.error('Error initializing recording:', e);
-        alert('Error initializing recording: ' + e);
-      }
     }
+
+    function stopRecording() {
+      clearTimeout(stopped_speaking_timeout);
+      document.getElementById('start').disabled = true;
+      document.getElementById('startOver').disabled = true;
+      recorder.port.postMessage({ message: 'UPDATE_RECORDING_STATE', 
+                     setRecording: false });
+      speechEvents.stop();
+      isRecording = false;
+    }
+
+    document.getElementById('start').addEventListener('click', async () => {
+      if (!isRecording) {
+        if (!recorder) {
+          initAudio();
+        }
+        startRecording();
+      } else {
+        stopRecording();
+      }
+    });
 
     document.getElementById('startOver').onclick = function() {
       if (recorder && isRecording) { 
@@ -165,16 +181,6 @@
                        setRecording: true });
         clearTimeout(stopped_speaking_timeout);
       }
-    };
-
-    async function stopRecording() {
-      clearTimeout(stopped_speaking_timeout);
-      document.getElementById('start').disabled = true;
-      document.getElementById('startOver').disabled = true;
-      recorder.port.postMessage({ message: 'UPDATE_RECORDING_STATE', 
-                     setRecording: false });
-      speechEvents.stop();
-      isRecording = false;
     }
   </script>
 

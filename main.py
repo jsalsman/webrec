@@ -18,13 +18,20 @@ def upload_audio():
     if audio_file:
         audio_file.save("audio.raw")
 
-        # Convert format, trim silence #and normalize levels
+        # Convert format, trim silence
         tfm = sox.Transformer()
         tfm.set_input_format(file_type='raw', rate=16000, bits=16, 
                              channels=1, encoding='signed-integer')
-        tfm.silence()
-        #tfm.compand()
-        #tfm.norm()
+
+        tfm.silence(min_silence_duration=0.25,  # remove lengthy silence 
+            buffer_around_silence=True)  # replace removals with 1/4 second
+        # https://pysox.readthedocs.io/en/latest/api.html#sox.transform.Transformer.silence
+        # TODO: probably need silence_threshold > 0.1 default?
+
+        #tfm.vad(location=1)   # voice activity detection
+        #tfm.vad(location=-1)  # ...and from end  
+        # https://pysox.readthedocs.io/en/latest/api.html#sox.transform.Transformer.vad
+               
         tfm.build("audio.raw", "audio.wav")
 
         return redirect('/playback/audio.wav')

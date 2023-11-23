@@ -70,7 +70,7 @@ class RecordingProcessor extends AudioWorkletProcessor {
           outputs[input][channel][sample] = currentSample;
 
           // Sum values for visualizer
-          this.sampleSum += currentSample;
+          this.sampleSum += Math.abs(currentSample);  // CHANGED to absolute values [0, 1]
         }
       }
     }
