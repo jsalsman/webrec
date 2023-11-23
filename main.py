@@ -1,5 +1,4 @@
-from flask import (Flask, request, render_template, url_for, 
-                   redirect, send_from_directory)
+from flask import Flask, request, render_template,  redirect, send_from_directory
 import sox
 from time import time
 
@@ -15,34 +14,33 @@ def record():
 
 @app.route('/upload-audio', methods=['POST'])  # accept file from recorder
 def upload_audio():
-    if 'audio' in request.files:
-        audio_file = request.files['audio']
-        audio_path = "./uploaded_audio.wav"
-        audio_file.save(audio_path)
+    audio_file = request.files.get('audio')
+    if audio_file:
+        audio_file.save("audio.raw")
 
-        # Trim silence #and normalize levels
+        # Convert format, trim silence #and normalize levels
         tfm = sox.Transformer()
+        tfm.set_input_format(file_type='raw', rate=16000, bits=16, 
+                             channels=1, encoding='signed-integer')
         tfm.silence()
         #tfm.compand()
         #tfm.norm()
-        trimmed_audio_path = "./audio.wav"
-        tfm.build(audio_path, trimmed_audio_path)
+        tfm.build("audio.raw", "audio.wav")
 
-        return redirect(url_for('playback', audio_path=trimmed_audio_path))
+        return redirect('/playback/audio.wav')
     return "No audio file", 400
+
+@app.route('/playback/<filename>')  # autoplay audio player
+def playback(filename):
+    current_time = time()  # for bypassing browser cache
+    return render_template('playback.html', audio=filename,
+                           time=current_time)
 
 @app.route('/get-audio/<filename>')  # download the trimmed audio
 def get_audio(filename):
-    return send_from_directory('.', 'audio.wav')  # was filename, less secure
+    return send_from_directory('.', filename)  # TODO: make safer
 
-@app.route('/playback')  # provide an autoplay audio player with controls
-def playback():
-    audio_path = request.args.get('audio_path')
-    current_time = time()  # for bypassing browser cache
-    return render_template('playback.html', audio_path=audio_path,
-                           time=current_time)
-
-@app.route('/static/<path:path>')  # serve javascript and favicon files
+@app.route('/static/<path:path>')  # javascript and favicon files
 def send_js(path):
     return send_from_directory('static', path)
 

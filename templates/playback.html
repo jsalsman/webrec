@@ -9,7 +9,8 @@
 <body>
     <h1>Playback Recorded Audio</h1>
     <audio controls autoplay onended="window.location.href='/record';">
-        <source src="{{ url_for('get_audio', filename=audio_path) }}?nocache={{ time }}" type="audio/wav">
+        <source src="{{ url_for('get_audio', filename=audio)
+            }}?nocache={{ time }}" type="audio/wav">
         Your browser does not support the audio element.
     </audio>
     <script>
