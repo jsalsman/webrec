@@ -1,7 +1,0 @@
-.pythonlibs
-.breakpoints
-*.lock
-audio.*
-recbutton.*
-.replit
-replit.*
