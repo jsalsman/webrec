@@ -17,6 +17,10 @@
       -webkit-text-size-adjust: 100%;
     }
 
+    a {
+      text-decoration: none; /* Removes underlining from links */
+    }
+
     h1, h2, h3 {
       font-family: 'Georgia', serif;
     }
@@ -39,12 +43,49 @@
       background-color: gray;
       color: white;
     }
+
+    /* Flex container for meters */
+    .meter-container {
+      display: flex;
+      flex-direction: row;
+      align-items: center; /* Centers items vertically */
+      gap: 15px;
+      max-width: 500px; /* Maximum width of the container */
+      margin-bottom: 20px; /* Adds some space below each meter */
+    }
+
+    meter {
+      flex: 1; /* Allows the meter to grow */
+      /* Remove inline styles for width from the HTML and control it here if necessary */
+    }
+
+    /* Flex container for buttons */
+    .button-container {
+      display: flex;
+      flex-direction: row;
+      gap: 15px;
+      width: 100%; /* The container takes up 100% of the parent's width */
+      max-width: 500px; /* Maximum width of the container */
+      justify-content: space-between;
+      margin-top: 20px; /* Adds some space above */
+    }
+
+    /* Styles for the buttons */
+    #start, #startOver {
+      flex: 1; /* Allows the buttons to grow and fill the container */
+    }
+
+    /* Style for the Safari help link container */
+    #safari-help {
+      margin-top: 20px; /* Adds some space above the help link */
+    }
   </style>
 
 </head>
 <body>
   <h2>Record and Upload Audio with Stop on Silence</h2>
 
+  <!-- VAD toggle and delay selection -->
   <div style="font-size: 120%;">
     <label><input type="checkbox" id="vad" checked> Stop</label> after:
     <label><input type="radio" name="sil_dur" value="1">&nbsp;1,</label>
@@ -52,24 +93,33 @@
     <label><input type="radio" name="sil_dur" value="3">&nbsp;3 seconds</label>
     of silence.
   </div>
-
   <br>
-  Audio level: <meter id="level" min="0" max="1" 
-    low="0.05" high="0.7" value="0" style="width: 180px;"></meter>
-    <span id="vadSpan"></span>
-  <br><br>
-  <span id="secs">00.0</span> of up to 60 seconds: <meter id="full" 
-    min="0" max="60" high="55" value="0" style="width: 130px;"></meter>
-  <br><br>
+  
+  <!-- Meter for audio level -->
+  <div class="meter-container">
+    <label for="level">Audio level:</label>
+    <meter id="level" min="0" max="1" low="0.05" high="0.7" value="0"></meter>
+    <span id="vadSpan">Silence</span>
+  </div>
 
-  <button id="start" style="font-size: 110%;" disabled>Initializing...</button>
-  &nbsp;
-  <span id="safari" style="display: none;"><h3>Apple Safari users: please <a
-    href="https://support.apple.com/guide/mac-help/control-access-to-the-microphone-on-mac-mchla1b1e1fe/mac"
-    >see here if you are having trouble.</a></h3></span>
-  &nbsp;
-  <button id="startOver" style="font-size: 110%; display: none;"
-    >Start Over</button>
+  <!-- Meter for recording time -->
+  <div class="meter-container">
+    <label for="full"><span id="secs">00.0</span> of up to 60 seconds:</label>
+    <meter id="full" min="0" max="60" high="55" value="0"></meter>
+  </div>
+
+  <!-- Buttons -->
+  <div class="button-container">
+    <button id="start" disabled>Initializing...</button>
+    <button id="startOver" style="display: none;">Start Over</button>
+  </div>
+
+  <!-- Safari users' help link -->
+  <div id="safari-help" style="display: none;">
+    <h3>Apple Safari users: <a 
+      href="https://support.apple.com/guide/mac-help/control-access-to-the-microphone-on-mac-mchla1b1e1fe/mac"
+      >please see here if you are having trouble.</a></h3>
+  </div>
 
   <script>
     var context, gotContext = false;  // audioContext
@@ -100,7 +150,7 @@
           gotContext = true;
         } else {
           // needs a click
-          document.getElementById('start').textContent = 'Sense Audio Levels';
+          document.getElementById('start').textContent = 'Detect Audio Levels';
           document.getElementById('start').disabled = false;
         }
       }
@@ -116,7 +166,7 @@
           // Microphone access not granted or no microphone available
           if (/^((?!chrome|android).)*safari/i.test(navigator.userAgent)) {
             // Apple Safari needs special permissions
-            document.getElementById('safari').style.display = 'inline';
+            document.getElementById('safari-help').style.display = 'block';
           }
           document.getElementById('start').textContent = 'Allow Microphone Use';
           document.getElementById('start').disabled = false;
@@ -157,6 +207,9 @@
         
         const micSourceNode = new MediaStreamAudioSourceNode(context,
             {mediaStream: stream});
+
+        // Hide Apple Safari browser microphone permissions help
+        document.getElementById('safari-help').style.display = 'none';
         
         await context.audioWorklet.addModule('/static/recording-processor.js');
         recorder = new AudioWorkletNode(context, 'recording-processor',
@@ -245,8 +298,6 @@
         
         myvad.start();
 
-        document.getElementById('safari').style.display = 'none';
-        
         document.getElementById('start').textContent = 'Start Recording';
         document.getElementById('start').disabled = false;
   
