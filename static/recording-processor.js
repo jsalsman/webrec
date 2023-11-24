@@ -30,9 +30,9 @@ class RecordingProcessor extends AudioWorkletProcessor {
     this.recordedFrames = 0;
     this.isRecording = false;
 
-    // We will use a timer to gate our messages; this one will publish at 60hz
+    // We will use a timer to gate our messages; this one will publish at 30hz
     this.framesSinceLastPublish = 0;
-    this.publishInterval = this.sampleRate / 60;
+    this.publishInterval = this.sampleRate / 30;
 
     // We will keep a live sum for rendering the visualizer.
     this.sampleSum = 0;

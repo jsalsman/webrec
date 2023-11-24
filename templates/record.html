@@ -4,15 +4,47 @@
   <meta charset="UTF-8">
   <title>webrec: Record and Upload Audio</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- TODO: maybe try viewport-fit=cover for mobile -->
   <link rel="icon" href="/static/microphone.png">
+
+  <!-- Voice Activity Detection: @ricky0123/vad-web, see below -->
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.7/dist/bundle.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Verdana', sans-serif;
+      background-color: #fafafa; /* very light gray */
+    }
+
+    h1, h2, h3 {
+      font-family: 'Georgia', serif;
+    }
+
+    button {
+      font-family: 'Verdana', sans-serif;
+      font-size: 16px;
+      padding: 10px 20px; 
+      border: 0; /* No border */
+      border-radius: 5px; /* Rounds the corners */
+      background-color: lightgreen; /* background */
+      color: black; /* text */
+      margin: 0; /* No margins */
+      box-sizing: border-box; /* Ensures padding is included in the total width and height */
+      -webkit-appearance: none; /* Removes default styling on iOS */
+      appearance: none; /* Removes default styling on other browsers */
+    }
+
+    button:disabled {
+      background-color: gray;
+      color: white;
+    }
+  </style>
+
 </head>
 <body>
   <h2>Record and Upload Audio with Stop on Silence</h2>
 
-  <div style="font-size: 150%;">
+  <div style="font-size: 120%;">
     <label><input type="checkbox" id="vad" checked> Stop</label> after:
     <label><input type="radio" name="sil_dur" value="1"> 1,</label>
     <label><input type="radio" name="sil_dur" value="2" checked> 2,</label> or
@@ -22,18 +54,18 @@
 
   <br>
   Audio level: <meter id="level" min="0" max="1" 
-    low="0.1" high="0.7" value="0" style="width: 210px;"></meter>
+    low="0.05" high="0.7" value="0" style="width: 210px;"></meter>
     <span id="vadSpan"></span>
   <br><br>
   <span id="secs">00.0</span> of up to 60 seconds: <meter id="full" 
-    min="0" max="60" high="55" value="0" style="width: 180px;"></meter>
+    min="0" max="60" high="55" value="0" style="width: 170px;"></meter>
   <br><br>
 
   <button id="start" style="font-size: 130%;" disabled>Initializing...</button>
   &nbsp;
-  <span id="safari" style="display: none;"><h3>Apple Safari users <a
+  <span id="safari" style="display: none;"><h3>Apple Safari users: please <a
     href="https://support.apple.com/guide/mac-help/control-access-to-the-microphone-on-mac-mchla1b1e1fe/mac"
-    >please see here.</a></h3></span>
+    >see here if you are having trouble.</a></h3></span>
   &nbsp;
   <button id="startOver" style="font-size: 130%; display: none;"
     >Start Over</button>
@@ -41,7 +73,7 @@
   <script>
     var context, gotContext = false;  // audioContext
     var stream, recorder = null, isRecording = false;
-    var vad, stopped_speaking_timeout = null;  // VAD timeout
+    var myvad, stopped_speaking_timeout = null;  // VAD timeout
 
     window.onload = async function() {  
       // Make sure the browser has audio
@@ -105,9 +137,8 @@
       
       document.getElementById('startOver').onclick = function() {
         if (recorder && isRecording) { 
-          // setRecording: true will reset recorded samples to zero
           recorder.port.postMessage({ message: 'UPDATE_RECORDING_STATE', 
-                         setRecording: true });
+                         setRecording: true });  // Reset samples to zero
           clearTimeout(stopped_speaking_timeout);
         }
       }
@@ -117,10 +148,10 @@
       try {
         stream = await navigator.mediaDevices.getUserMedia(
           { audio: {
-            echoCancellation: false,
-            autoGainControl: false,   // TODO: try?
-            noiseSuppression: false,  // try!
-            latency: 0},              // ???
+              noiseSuppression: false,  // TODO: try!
+              autoGainControl: false,   // try?
+              latency: 0,               // ???
+              echoCancellation: false },
            video: false });
         
         const micSourceNode = new MediaStreamAudioSourceNode(context,
@@ -137,7 +168,7 @@
         await micSourceNode.connect(recorder);
   
         recorder.port.onmessage = event => {
-          
+        
           if (event.data.message === 'SHARE_RECORDING_BUFFER') { 
             // Recording ended, upload file
             let length = event.data.recordingLength;
@@ -171,14 +202,13 @@
             stopRecording();
             
           } else if (event.data.message === 'UPDATE_RECORDING_LENGTH') {
-            //console.log('Samples so far: ' + event.data.recordingLength);
             let seconds = event.data.recordingLength / 16000
             document.getElementById('full').value = seconds.toFixed(2);
             document.getElementById('secs').textContent = 
               seconds.toFixed(1).padStart(4, '0');
             
           } else if (event.data.message === 'UPDATE_VISUALIZERS') {
-            let expKx = Math.exp(15 * event.data.gain);
+            let expKx = Math.exp(20 * event.data.gain);
             document.getElementById('level').value = 
               ((expKx - 1) / (expKx + Math.E)).toFixed(2);
           }
@@ -188,16 +218,17 @@
         // https://www.vad.ricky0123.com/docs/browser/
         const originalConsoleError = console.error; // TODO: omit in production
         console.error = () => {}; // supress console error messages from ort.js
-        vad = await vad.MicVAD.new({
+        
+        myvad = await vad.MicVAD.new({
           additionalAudioConstraints: { audio: stream },
           onSpeechStart: () => {
-            console.log('VAD: Speaking started');
+            //console.log('VAD: Speaking started');
             document.getElementById('vadSpan').textContent = 'Speech';
             document.getElementById('vadSpan').style.color = 'darkgreen';
             clearTimeout(stopped_speaking_timeout);
           },
           onSpeechEnd: (audio) => {
-            console.log('VAD: Speaking stopped');
+            //console.log('VAD: Speaking stopped');
             document.getElementById('vadSpan').textContent = 'Silence';
             document.getElementById('vadSpan').style.color = 'darkgray';
             if (isRecording && document.getElementById('vad').checked) {
@@ -208,9 +239,10 @@
             }
           }
         });
-        console.error = originalConsoleError; // TODO: omit in production
-        vad.start();
         
+        console.error = originalConsoleError; // TODO: omit in production
+        
+        myvad.start();
 
         document.getElementById('safari').style.display = 'none';
         
@@ -219,9 +251,10 @@
   
       } catch (e) {
         console.error('Error initializing recorder:', e);
-        document.getElementById('start').style.display = 'none';
+        console.trace();
+        document.getElementById('start').disabled = true;
         document.getElementById('startOver').style.display = 'none';
-        alert('Error initializing recorder: ' + e + '\n' + Error().stack);  // TODO: stack backtrace
+        alert('Error initializing recorder: ' + e + '\n\n' + Error().stack);
       }
     }
     
