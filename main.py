@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template,  redirect, send_from_directory
-import sox
+import sox  # needs command line sox and the pysox package
 from time import time
 
 app = Flask(__name__)

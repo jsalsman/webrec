@@ -221,7 +221,7 @@
         console.error('Error initializing recorder:', e);
         document.getElementById('start').style.display = 'none';
         document.getElementById('startOver').style.display = 'none';
-        alert('Error initializing recorder: ' + e);
+        alert('Error initializing recorder: ' + e + '\n' + Error().stack);  // TODO: stack backtrace
       }
     }
     
