@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-  
   <!--
       webrec: Record and Upload Audio with Stop on Silence
   
@@ -27,7 +26,6 @@
 
       github: https://github.com/jsalsman/webrec
   -->
-  
 <head>
   <meta charset="UTF-8">
   <title>webrec: Record and Upload Audio</title>
@@ -148,6 +146,12 @@
       href="https://support.apple.com/guide/mac-help/control-access-to-the-microphone-on-mac-mchla1b1e1fe/mac"
       >please see here if you are having trouble.</a></h3>
   </div>
+  
+  <br>
+  <div style="font-size: 120%">
+    <label><input type="checkbox" id="suppressNoise"> Noise supression
+    (may degrade quality)</label>
+  </div>
 
 <script>
   // Define global variables for audio context, stream, recorder, voice activity detection (VAD), and timeout handling
@@ -236,6 +240,10 @@
         clearTimeout(stopped_speaking_timeout);
       }
     }
+
+    // Event listener for the noise suppression checkbox
+    document.getElementById('suppressNoise').addEventListener('change', setNoiseSuppression);
+
   }
 
   // Function to initialize the audio recorder
@@ -243,12 +251,12 @@
     try {
       // Use the WebRTC getUserMedia API to access the user's microphone
       stream = await navigator.mediaDevices.getUserMedia(
-        { audio: {
-            noiseSuppression: false,   // Optional: try noise suppression; TODO: try!
-            autoGainControl: false,    // Optional: try automatic gain control
-            latency: 0,                // Optional: set latency (???)
-            echoCancellation: false }, // Optional: set echo cancellation
-         video: false }); // No video is required
+        { audio: {  // Set noise supression from the checkbox
+            noiseSuppression: document.getElementById('suppressNoise').checked,
+            autoGainControl: false,    // Optional automatic gain control
+            latency: 0,                // Ask for minimum latency
+            echoCancellation: false }, // Echo cancellation unnecessary here
+         video: false });  // No video
 
       // Create a MediaStreamAudioSourceNode from the audio stream
       const micSourceNode = new MediaStreamAudioSourceNode(context,
@@ -278,6 +286,7 @@
           let length = event.data.recordingLength;
           console.log('Seconds Recorded: ' + length / 16000);
 
+          // Convert the floating point array buffer to audio/l16 PCM
           let buffer = event.data.buffer[0];
           let pcmData = new Uint8Array(length * 2);
           for (let index = 0; index < length; ++index) {
@@ -288,6 +297,7 @@
             pcmData[index * 2 + 1] = (sample >> 8) & 255; // high byte
           }
 
+          // Put the raw PCM data in a blob and upload it
           let formData = new FormData();
           let blob = new Blob([pcmData], { type: 'audio/l16' });
           formData.append('audio', blob, 'audio.raw');            
@@ -301,20 +311,23 @@
           }).catch(error => {
             alert('Upload error:' + error);
           });
-          
+
+        // Stop the recording if the buffer is full
         } else if (event.data.message === 'MAX_RECORDING_LENGTH_REACHED') {
           stopRecording();
-          
+
+        // Set the duration meter
         } else if (event.data.message === 'UPDATE_RECORDING_LENGTH') {
           let seconds = event.data.recordingLength / 16000
           document.getElementById('full').value = seconds.toFixed(2);
           document.getElementById('secs').textContent = 
             seconds.toFixed(1).padStart(4, '0');
           
+        // Set the audio level meter
         } else if (event.data.message === 'UPDATE_VISUALIZERS') {
-          let expKx = Math.exp(20 * event.data.gain);
-          document.getElementById('level').value = 
-            ((expKx - 1) / (expKx + Math.E)).toFixed(2);
+          let expKx = Math.exp(20 * event.data.gain);    // Don't ask me;
+          document.getElementById('level').value =       // ChatGPT-4 came
+            ((expKx - 1) / (expKx + Math.E)).toFixed(2); // up with this.
         }
       }
   
@@ -352,15 +365,16 @@
       } catch (e) {
         console.error('Error initializing recorder:', e);
         console.trace();  // full stack backtrace
-        document.getElementById('start').disabled = true;
+        document.getElementById('start').disabled = true;  // Disallow further interaction
         document.getElementById('startOver').style.display = 'none';
         alert('Error initializing recorder: ' + e + '\n\n' + Error().stack);
       }
     }
       
     function startRecording() {
+      setNoiseSuppression();
       recorder.port.postMessage({ message: 'UPDATE_RECORDING_STATE', 
-                     setRecording: true });
+                     setRecording: true });  // Begin recording
       isRecording = true;
       
       document.getElementById('start').textContent = 'End Recording';
@@ -373,12 +387,35 @@
       document.getElementById('start').disabled = true;
       document.getElementById('startOver').disabled = true;
       recorder.port.postMessage({ message: 'UPDATE_RECORDING_STATE', 
-                     setRecording: false });
+                     setRecording: false });  // Halt recording
       isRecording = false;
     }
+
+    // Setter for the noise suppression checkbox
+    function setNoiseSuppression() {
+      if (stream) {
+        let audioTrack = stream.getAudioTracks()[0];
+        if (audioTrack) {
+          audioTrack.applyConstraints({ noiseSuppression: document.getElementById('suppressNoise').checked })
+            .then(() => {
+              let currentSettings = audioTrack.getSettings();
+              if (currentSettings.noiseSuppression !== document.getElementById('suppressNoise').checked) {
+                console.warn('Warning: Noise suppression setting did not apply as expected.');
+                document.getElementById('suppressNoise').checked = currentSettings.noiseSuppression;
+              }
+            })
+            .catch(err => {
+              console.error('Failed to toggle noise suppression:', err);
+              document.getElementById('suppressNoise').checked = !document.getElementById('suppressNoise').checked;
+            });
+        }
+      }
+    }
+  
   </script>
 
   <br><br>
+  
   Python Flask and JavaScript source code is
   <a href="https://replit.com/@jsalsman/webrec">on Replit</a>
   and <a href="https://github.com/jsalsman/webrec">GitHub.</a>

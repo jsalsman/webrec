@@ -12,5 +12,4 @@ github: https://github.com/jsalsman/webrec
 MIT license
 
 # To do
-- Microphone noiseSupression and maybe autoGainControl
 - Check back about errors (warnings?) from ort.js during vad.micVAD.new()
