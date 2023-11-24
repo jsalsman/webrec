@@ -1,3 +1,13 @@
+# webrec: Record and Upload Audio with Stop on Silence
+#
+# See templates/record.html for primary comments and main javascript code.
+#
+# This application is released under the MIT License, November 24, 2023.
+#
+# run: https://webrec.replit.app
+# dev: https://replit.com/@jsalsman/webrec
+# github: https://github.com/jsalsman/webrec
+
 from flask import Flask, request, render_template,  redirect, send_from_directory
 import sox  # needs command line sox and the pysox package
 from time import time
