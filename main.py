@@ -10,7 +10,7 @@ def index():
 
 @app.route('/record')  # show recording UI
 def record():
-    return render_template('record.html')
+    return render_template('record.html')  # see for more detailed comments
 
 @app.route('/upload-audio', methods=['POST'])  # accept file from recorder
 def upload_audio():
