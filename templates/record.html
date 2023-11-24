@@ -14,6 +14,7 @@
     body {
       font-family: 'Verdana', sans-serif;
       background-color: #fafafa; /* very light gray */
+      -webkit-text-size-adjust: 100%;
     }
 
     h1, h2, h3 {
@@ -46,28 +47,28 @@
 
   <div style="font-size: 120%;">
     <label><input type="checkbox" id="vad" checked> Stop</label> after:
-    <label><input type="radio" name="sil_dur" value="1"> 1,</label>
-    <label><input type="radio" name="sil_dur" value="2" checked> 2,</label> or
-    <label><input type="radio" name="sil_dur" value="3"> 3 seconds</label>
+    <label><input type="radio" name="sil_dur" value="1">&nbsp;1,</label>
+    <label><input type="radio" name="sil_dur" value="2" checked>&nbsp;2,</label> or
+    <label><input type="radio" name="sil_dur" value="3">&nbsp;3 seconds</label>
     of silence.
   </div>
 
   <br>
   Audio level: <meter id="level" min="0" max="1" 
-    low="0.05" high="0.7" value="0" style="width: 210px;"></meter>
+    low="0.05" high="0.7" value="0" style="width: 180px;"></meter>
     <span id="vadSpan"></span>
   <br><br>
   <span id="secs">00.0</span> of up to 60 seconds: <meter id="full" 
-    min="0" max="60" high="55" value="0" style="width: 170px;"></meter>
+    min="0" max="60" high="55" value="0" style="width: 130px;"></meter>
   <br><br>
 
-  <button id="start" style="font-size: 130%;" disabled>Initializing...</button>
+  <button id="start" style="font-size: 110%;" disabled>Initializing...</button>
   &nbsp;
   <span id="safari" style="display: none;"><h3>Apple Safari users: please <a
     href="https://support.apple.com/guide/mac-help/control-access-to-the-microphone-on-mac-mchla1b1e1fe/mac"
     >see here if you are having trouble.</a></h3></span>
   &nbsp;
-  <button id="startOver" style="font-size: 130%; display: none;"
+  <button id="startOver" style="font-size: 110%; display: none;"
     >Start Over</button>
 
   <script>

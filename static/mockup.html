@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>webrec: Record and Upload Audio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/static/microphone.png">
+
+  <style>
+    body {
+      font-family: 'Verdana', sans-serif;
+      background-color: #fafafa; /* very light gray */
+      -webkit-text-size-adjust: 100%;
+    }
+
+    h1, h2, h3 {
+      font-family: 'Georgia', serif;
+    }
+
+    button {
+      font-family: 'Verdana', sans-serif;
+      font-size: 16px;
+      padding: 10px 20px; 
+      border: 0; /* No border */
+      border-radius: 5px; /* Rounds the corners */
+      background-color: lightgreen; /* background */
+      color: black; /* text */
+      margin: 0; /* No margins */
+      box-sizing: border-box; /* Ensures padding is included in the total width and height */
+      -webkit-appearance: none; /* Removes default styling on iOS */
+      appearance: none; /* Removes default styling on other browsers */
+    }
+
+    button:disabled {
+      background-color: gray;
+      color: white;
+    }
+  </style>
+
+</head>
+<body>
+  <h2>Record and Upload Audio with Stop on Silence</h2>
+
+  <div style="font-size: 120%;">
+    <label><input type="checkbox" id="vad" checked> Stop</label> after:
+    <label><input type="radio" name="sil_dur" value="1">&nbsp;1,</label>
+    <label><input type="radio" name="sil_dur" value="2" checked>&nbsp;2,</label> or
+    <label><input type="radio" name="sil_dur" value="3">&nbsp;3 seconds</label>
+    of silence.
+  </div>
+
+  <br>
+  Audio level: <meter id="level" min="0" max="1" 
+    low="0.05" high="0.7" value="0" style="width: 180px;"></meter>
+    <span id="vadSpan">Silence</span>
+  <br><br>
+  <span id="secs">00.0</span> of up to 60 seconds: <meter id="full" 
+    min="0" max="60" high="55" value="0" style="width: 130px;"></meter>
+  <br><br>
+
+  <button id="start" style="font-size: 110%;">Start Recording</button>
+  &nbsp;
+  <span id="safari" style="display: none;"><h3>Apple Safari users: please <a
+    href="https://support.apple.com/guide/mac-help/control-access-to-the-microphone-on-mac-mchla1b1e1fe/mac"
+    >see here if you are having trouble.</a></h3></span>
+  &nbsp;
+  <button id="startOver" style="font-size: 110%;"
+    >Start Over</button>
+
+  <br><br>
+  Python Flask and JavaScript source code is
+  <a href="https://replit.com/@jsalsman/webrec">on Replit</a>
+  and <a href="https://github.com/jsalsman/webrec">GitHub.</a>
+</body>
+</html>
