@@ -15,5 +15,6 @@ for comments and code.
 MIT license
 
 # TODO
+- streaming upload with WebSockets
 - update screenshot and cover image with the noise supression checkbox
 - maybe companding with sox?
