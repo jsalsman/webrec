@@ -16,4 +16,4 @@ MIT license
 
 # TODO
 - update screenshot and cover image with the noise supression checkbox
-- maybe try autoGainControl
+- maybe companding with sox?

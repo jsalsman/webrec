@@ -46,11 +46,6 @@ def upload_audio():
     tfm.silence(min_silence_duration=0.25,  # remove lengthy silence 
       buffer_around_silence=True)  # replace removals with 1/4 second
     # https://pysox.readthedocs.io/en/latest/api.html#sox.transform.Transformer.silence
-    # TODO: probably need silence_threshold > 0.1 default?
-
-    #tfm.vad(location=1, normalize=False)   # voice activity detection
-    #tfm.vad(location=-1, normalize=False)  # ...and from end  
-    # https://pysox.readthedocs.io/en/latest/api.html#sox.transform.Transformer.vad
          
     tfm.build('static/' + raw_filename, 'static/' + wav_filename)
 
