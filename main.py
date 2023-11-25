@@ -21,7 +21,8 @@ def index():
 
 @app.route('/record')  # show recording UI
 def record():
-  return render_template('record.html')  # see for more detailed comments
+  return render_template('record.html', 
+                         force_click='forceClick' in request.args)
 
 @app.route('/upload-audio', methods=['POST'])
 def upload_audio():

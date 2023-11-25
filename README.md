@@ -15,4 +15,4 @@ for comments and code.
 MIT license
 
 # TODO
-- offer to reload on failed noise suppression toggle
+- maybe try autoGainControl
