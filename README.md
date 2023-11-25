@@ -15,4 +15,5 @@ for comments and code.
 MIT license
 
 # TODO
+- update screenshot and cover image with the noise supression checkbox
 - maybe try autoGainControl
