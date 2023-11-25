@@ -146,18 +146,21 @@
       href="https://support.apple.com/guide/mac-help/control-access-to-the-microphone-on-mac-mchla1b1e1fe/mac"
       >please see here if you are having trouble.</a></h3>
   </div>
-  
   <br>
+
+  <!-- WebRTC noise supression toggle -->
   <div style="font-size: 120%">
-    <label><input type="checkbox" id="suppressNoise"> Noise supression
-    (may degrade quality)</label>
+    <span id="nsSpan"><label><input type="checkbox" id="suppressNoise">
+      Noise supression (may degrade quality)</label></span>
   </div>
 
 <script>
-  // Define global variables for audio context, stream, recorder, voice activity detection (VAD), and timeout handling
-  var context, gotContext = false;  // Audio context for managing and playing audio
-  var stream, recorder = null, isRecording = false; // Stream for audio data, recorder for recording audio, and a flag for recording status
-  var myvad, stopped_speaking_timeout = null;  // VAD for speech detection and timeout for speech inactivity
+  // Global variables
+  var context, gotContext = false;  // Audio context for managing audio
+  // Stream for audio data, AudioWorkletNode from recording-processing.js
+  var stream, recorder = null, isRecording = false;  // and recording flag
+  // vad.MicVAD for Voice Activity Detection and Timeout for speech inactivity
+  var myvad, stopped_speaking_timeout = null;
 
   // Function executed when the window loads
   window.onload = async function() {  
@@ -179,7 +182,7 @@
         }
       } catch (e) {
         // Handle the case where Web Audio API is not supported by the browser
-        document.getElementById('start').style.display = 'none';
+        document.getElementById('start').disabled = true;
         alert('Web audio is not supported on this browser.');
       }
     } else {
@@ -204,9 +207,9 @@
           await initRecorder();
         }
       } else {
-        // Handle the case where microphone access is not granted or no microphone is available
+        // When microphone access is not granted or no microphone is available
         if (/^((?!chrome|android).)*safari/i.test(navigator.userAgent)) {
-          // Special handling for Apple Safari browser for microphone permissions
+          // Special help for Apple Safari browser users on microphone permissions
           document.getElementById('safari-help').style.display = 'block';
         }
         document.getElementById('start').textContent = 'Allow Microphone Use';
@@ -272,7 +275,7 @@
         { processorOptions: {
           numberOfChannels: 1,
           sampleRate: 16000,
-          maxFrameCount: 16000 * 60 // Maximum frame count for one minute of recording
+          maxFrameCount: 16000 * 60 // Maximum frames for 1 minute of audio
       }});
 
       // Connect the microphone source node to the recorder
@@ -309,7 +312,11 @@
               window.location.href = response.url;
             }
           }).catch(error => {
-            alert('Upload error:' + error);
+            console.error('Upload error: ', e);
+            alert('Upload error: ' + e);
+            // Disallow further interaction
+            document.getElementById('start').disabled = true;
+            document.getElementById('startOver').disabled = true;
           });
 
         // Stop the recording if the buffer is full
@@ -333,9 +340,15 @@
   
       // Voice Activity Detection: @ricky0123/vad-web
       // https://www.vad.ricky0123.com/docs/browser/
-      const originalConsoleError = console.error; // TODO: omit in production
-      console.error = () => {}; // supress console error messages from ort.js
-      
+
+      // Suppress sub-warning "errors" in the console log from ort.js
+      const origConsoleError = console.error; // Save original console.error()
+      console.error = (...args) => { 
+        // Check if the error message contains this specific text
+        if (!args[0].includes("not used by any node and should be removed")) {
+          origConsoleError(...args); // If not, call the regular console.error
+        }
+      };
       myvad = await vad.MicVAD.new({
         additionalAudioConstraints: { audio: stream },
         onSpeechStart: () => {
@@ -356,21 +369,28 @@
           }
         }
       });
-      console.error = originalConsoleError; // TODO: omit in production
+      console.error = origConsoleError; // Restore original console.error()
       myvad.start();
 
       document.getElementById('start').textContent = 'Start Recording';
       document.getElementById('start').disabled = false;
 
       } catch (e) {
-        console.error('Error initializing recorder:', e);
-        console.trace();  // full stack backtrace
-        document.getElementById('start').disabled = true;  // Disallow further interaction
-        document.getElementById('startOver').style.display = 'none';
-        alert('Error initializing recorder: ' + e + '\n\n' + Error().stack);
+        let contextInfo = context ? 
+          `AudioContext state: ${context.state}, rate: ${context.sampleRate}`
+          : 'AudioContext not initialized';
+        let streamInfo = stream ?
+          `MediaStream active: ${stream.active}, tracks: ${stream.getTracks().length}` 
+          : 'MediaStream not initialized';
+        let errorMessage = `Call stack: ${Error().stack}\n` +
+                           `${contextInfo}\n${streamInfo}\n` +
+                           `Browser: ${navigator.userAgent}`;
+        console.error('Error initializing recorder:', e, '\n', errorMessage);
+        alert('Error initializing recorder: ' + e + '\n' + errorMessage);
+        location.reload();
       }
     }
-      
+
     function startRecording() {
       setNoiseSuppression();
       recorder.port.postMessage({ message: 'UPDATE_RECORDING_STATE', 
