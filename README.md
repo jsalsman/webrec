@@ -15,4 +15,11 @@ for comments and code.
 MIT license
 
 # To do
+- offer to reload on failed noise suppression toggle
+- store audio in /static/
+- limit uploads to 16000 * 2 * 60 + N bytes 
+- reload after alert()
+- unique filenames
+- delete M oldest audio files after each upload
+- disallow '..' etc. in downloads 
 - Check back about errors (warnings?) from ort.js during vad.micVAD.new()
