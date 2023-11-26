@@ -329,7 +329,8 @@
                     socket = false; // Disable the socket on failure
                     document.getElementById('socketSpan').innerHTML =
                       '<br> Socket.IO failed.';
-                    document.getElementById('socketData').textContent = '';
+                    document.getElementById('socketData').textContent =
+                      ` After ${streamedKB.toFixed(0)} KB in ${chunksStreamed} chunks.`;
                     log('audio_chunk socket error: ' + error)
                   }
                 });
@@ -338,7 +339,7 @@
                 chunksStreamed+= 1;
                 streamedKB += chunkBuffer.length / 1024; // Bytes to KB
                 document.getElementById('socketData').textContent =
-                  `Sent ${streamedKB.toFixed(0)} KB in ${chunksStreamed} KB.`;
+                  ` Sent ${streamedKB.toFixed(0)} KB in ${chunksStreamed} chunks.`;
 
                 chunkBuffer = []; // Clear the buffer after sending
               }
@@ -362,7 +363,7 @@
                     chunksStreamed+= 1;
                     streamedKB += chunkBuffer.length / 1024; // Convert bytes to KB
                     document.getElementById('socketData').textContent =
-                      `Finished with ${streamedKB.toFixed(0)} KB in ${chunksStreamed} KB.`;
+                      ` Finished with ${streamedKB.toFixed(0)} KB in ${chunksStreamed} chunks.`;
                   }
                 })
               }
@@ -379,7 +380,8 @@
             if (!socket) {
               document.getElementById('socketSpan').innerHTML =
                 '<br> Socket.IO failed.';
-              document.getElementById('socketData').textContent = '';
+              document.getElementById('socketData').textContent =
+                ` After ${streamedKB.toFixed(0)} KB in ${chunksStreamed} chunks.`;
   
               // Put the raw PCM data in a blob and upload it
               let formData = new FormData();
