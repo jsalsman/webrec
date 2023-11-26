@@ -5,18 +5,52 @@
   <title>Playback Audio</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="/static/microphone.png">
+  <style>
+    html, body {
+      height: 100%; /* Full height for the body */
+      margin: 0;
+    }
+
+    body {
+      display: flex; /* Flexbox layout */
+      flex-direction: column; /* Vertical stacking */
+      justify-content: center; /* Center content vertically */
+      align-items: center; /* Center content horizontally */
+      text-align: center; /* including text lol */
+      font-family: 'Verdana', sans-serif;
+      background-color: #fafafa; /* very light gray */
+      -webkit-text-size-adjust: 100%;
+    }
+
+    a {
+      text-decoration: none; /* Removes underlining from links */
+    }
+
+    h1 {
+      font-family: 'Georgia', serif;
+    }
+
+    audio {
+      margin: 20px 0; /* Vertical margin for audio */
+    }
+  </style>
 </head>
 <body>
   <h1>Playback Recorded Audio</h1>
+  
   <audio controls autoplay onended="window.location.href='/record';">
-    <source src="{{ url_for('get_audio', filename=audio) }}" type="audio/wav">
+    <source src="/get-audio/{{ audio }}" type="audio/mp3">
     Your browser does not support the audio element.
   </audio>
-  <script>
-    // Redirect to '/record' if the audio can't be played
-    document.querySelector('audio').onerror = function() {
-      window.location.href = '/record';
-    };
-  </script>
+
+  <div class="audio-info">
+    <a href="/get-audio/{{ audio }}">{{ url }}</a>
+    <br><br>
+    This link will persist for no less than ten minutes.
+    <br><br>
+    {{ duration }} seconds
+    <br><br>
+    {{ size }} KB
+  </div>
 </body>
 </html>

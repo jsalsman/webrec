@@ -8,7 +8,8 @@
 # dev: https://replit.com/@jsalsman/webrec
 # github: https://github.com/jsalsman/webrec
 
-from flask import Flask, request, render_template,  redirect, send_from_directory
+from flask import (Flask, request, render_template,  redirect,
+                   send_from_directory, url_for)
 from flask_socketio import SocketIO  # Fails over to POST submissions
 import sox                     # needs command line sox and the pysox package
 import lameenc                 # to produce .mp3 files for playback
@@ -109,9 +110,14 @@ def process_file(raw_filename):
       f'All audio using {audio_space:.2f} MB.')
   return mp3_fn
 
-@app.route('/playback/<filename>')
-def playback(filename):
-  return render_template('playback.html', audio=filename)
+@app.route('/playback/<fn>')
+def playback(fn):
+    size = os.path.getsize('static/' + fn) / 1024  # Size in KB
+    duration = sox.file_info.duration('static/' + fn)  # Duration in seconds
+    full_url = request.url_root + 'get_audio/' + fn
+    clean_url = full_url.replace('http://', '').replace('https://', '')
+    return render_template('playback.html', audio=fn, url=clean_url,
+                           size=f'{size:.1f}', duration=f'{duration:.1f}')
 
 @app.route('/get-audio/<filename>')  # download the trimmed audio
 def get_audio(filename):
@@ -126,7 +132,7 @@ for file in [os.path.join('static', f) for f in os.listdir('static')
              if f.startswith('audio-')]:
   os.remove(file)
 
-# WebSocket implementation
+# Socket.IO implementation
 active_streams = {}
 sid_to_filename = {}
 

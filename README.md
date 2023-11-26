@@ -15,7 +15,6 @@ for comments and code.
 MIT license
 
 # TODO
-- link, size, and duration on the playback page (in progress)
 - update screenshot and cover image with the noise supression checkbox
 - production WSGI server? Replit deployments might not be cross-platform
 - maybe companding with sox?

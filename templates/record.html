@@ -169,97 +169,93 @@
     // Flag for if Socket.IO is streaming, and how many chunks and kilobytes
     var socket = false, chunksStreamed = 0, streamedKB = 0;
   
-    // Function executed when the window loads
-//    window.onload = async function() {  
-      // Check if the Web Audio API is supported by the browser
-      if (!window.audioContext ) {
-        try {
-          // Polyfill for AudioContext for wider browser support
-          window.AudioContext = 
-            window.AudioContext || window.webkitAudioContext;
-          // Create a new AudioContext with a specific sample rate
-          context = new AudioContext({ sampleRate: 16000 });
-          // Check if the AudioContext is active
-          if (context.state === 'running') {
-            gotContext = true;
-          } else {            
-            // If suspended, AudioContext requires a user click to activate
-            document.getElementById('start').textContent = 'Detect Audio Levels';
-            document.getElementById('start').disabled = false;
-          }
-        } catch (e) {
-          // Handle the case where Web Audio API is not supported by the browser
-          document.getElementById('start').disabled = true;
-          alert('Web audio is not supported on this browser.');
-        }
-      } else {
-        // Initialize the AudioContext for browsers that support it natively
+    // Check if the Web Audio API is supported by the browser
+    if (!window.audioContext ) {
+      try {
+        // Polyfill for AudioContext for wider browser support
+        window.AudioContext = 
+          window.AudioContext || window.webkitAudioContext;
+        // Create a new AudioContext with a specific sample rate
         context = new AudioContext({ sampleRate: 16000 });
-        // Check and update context status
+        // Check if the AudioContext is active
         if (context.state === 'running') {
           gotContext = true;
-        } else {
-          // If AudioContext is suspended, enable it with user interaction
+        } else {            
+          // If suspended, AudioContext requires a user click to activate
           document.getElementById('start').textContent = 'Detect Audio Levels';
           document.getElementById('start').disabled = false;
         }
+      } catch (e) {
+        // Handle the case where Web Audio API is not supported by the browser
+        document.getElementById('start').disabled = true;
+        alert('Web audio is not supported on this browser.');
       }
-      
-      // Use WebRTC API to check for microphone access
-      navigator.mediaDevices.enumerateDevices().then(async devices => {
-        // Check if any of the media devices are microphones
-        if (devices.some(device => device.kind === 'audioinput'
-                         && device.label)) {
-          // The user has granted microphone access
-          if ( {{ force_click|tojson }} ) {  // |tojson lowercases booleans
-            document.getElementById('start').textContent = 'Detect Audio Levels';
-            document.getElementById('start').disabled = false;
-          } else if (context.state === 'running') {
-            await initRecorder();
-          }
-        } else {
-          // Microphone access is not granted or no mic is available
-          if (/^((?!chrome|android).)*safari/i.test(navigator.userAgent)) {
-            // Special help for Apple Safari users on microphone permissions
-            document.getElementById('safari-help').style.display = 'block';
-          }
-          document.getElementById('start').textContent = 'Allow Microphone Use';
+    } else {
+      // Initialize the AudioContext for browsers that support it natively
+      context = new AudioContext({ sampleRate: 16000 });
+      // Check and update context status
+      if (context.state === 'running') {
+        gotContext = true;
+      } else {
+        // If AudioContext is suspended, enable it with user interaction
+        document.getElementById('start').textContent = 'Detect Audio Levels';
+        document.getElementById('start').disabled = false;
+      }
+    }
+    
+    // Use WebRTC API to check for microphone access
+    navigator.mediaDevices.enumerateDevices().then(async devices => {
+      // Check if any of the media devices are microphones
+      if (devices.some(device => device.kind === 'audioinput'
+                       && device.label)) {
+        // The user has granted microphone access
+        if ( {{ force_click|tojson }} ) {  // |tojson lowercases booleans
+          document.getElementById('start').textContent = 'Detect Audio Levels';
           document.getElementById('start').disabled = false;
-        }
-      });
-      
-      // Add event listener for the 'start' button
-      document.getElementById('start').addEventListener('click', async () => {
-        if (!recorder) {
-          // If the recorder is not initialized, initialize it
-          document.getElementById('start').disabled = true;
-          document.getElementById('start').textContent = 'Initializing...';
-          context.resume();
+        } else if (context.state === 'running') {
           await initRecorder();
-        } else if (!isRecording) {
-          // If not currently recording, start recording
-          startRecording();
-        } else {
-          // If currently recording, stop recording
-          stopRecording();
         }
-      });
-      
-      // Event listener for the 'startOver' button
-      document.getElementById('startOver').onclick = function() {
-        if (recorder && isRecording) { 
-          // Send a message to reset the recording if already in progress
-          recorder.port.postMessage({ message: 'UPDATE_RECORDING_STATE', 
-                         setRecording: true });  // Reset samples to zero
-          clearTimeout(vad_timeout);
+      } else {
+        // Microphone access is not granted or no mic is available
+        if (/^((?!chrome|android).)*safari/i.test(navigator.userAgent)) {
+          // Special help for Apple Safari users on microphone permissions
+          document.getElementById('safari-help').style.display = 'block';
         }
+        document.getElementById('start').textContent = 'Allow Microphone Use';
+        document.getElementById('start').disabled = false;
       }
-  
-      // Event listener for the noise suppression checkbox
-      document.getElementById('suppressNoise').addEventListener('change', 
-                                                 setNoiseSuppression);
+    });
+    
+    // Add event listener for the 'start' button
+    document.getElementById('start').addEventListener('click', async () => {
+      if (!recorder) {
+        // If the recorder is not initialized, initialize it
+        document.getElementById('start').disabled = true;
+        document.getElementById('start').textContent = 'Initializing...';
+        context.resume();
+        await initRecorder();
+      } else if (!isRecording) {
+        // If not currently recording, start recording
+        startRecording();
+      } else {
+        // If currently recording, stop recording
+        stopRecording();
+      }
+    });
+    
+    // Event listener for the 'startOver' button
+    document.getElementById('startOver').onclick = function() {
+      if (recorder && isRecording) { 
+        // Send a message to reset the recording if already in progress
+        recorder.port.postMessage({ message: 'UPDATE_RECORDING_STATE', 
+                       setRecording: true });  // Reset samples to zero
+        clearTimeout(vad_timeout);
+      }
+    }
 
-//    }
+    // Event listener for the noise suppression checkbox
+    document.getElementById('suppressNoise').addEventListener('change', 
+                                               setNoiseSuppression);
   
     // Function to initialize the audio recorder
     async function initRecorder() {
@@ -324,7 +320,7 @@
               // Send the chunk if the buffer reaches the size limit
               if (chunkBuffer.length >= chunkBufferSizeLimit) {
                 mySocket.emit('audio_chunk', new Uint8Array(chunkBuffer), 
-                            (status, error) => {
+                              (status, error) => {
                   if (status === 'fail') {
                     socket = false; // Disable the socket on failure
                     document.getElementById('socketSpan').innerHTML =
@@ -354,7 +350,7 @@
             if (socket) {
               if (chunkBuffer.length) {
                 mySocket.emit('audio_chunk', new Uint8Array(chunkBuffer), 
-                            (status, error) => {
+                              (status, error) => {
                   if (status === 'fail') {
                     socket = false; // Disable the socket on failure
                     log('audio_chunk socket error: ' + error)
