@@ -9,6 +9,7 @@
 # github: https://github.com/jsalsman/webrec
 
 from flask import Flask, request, render_template,  redirect, send_from_directory
+from flask_socketio import SocketIO
 import sox                     # needs command line sox and the pysox package
 from datetime import datetime  # for audio file timestamps
 import os                      # to delete old audio files
@@ -18,6 +19,7 @@ from sys import stderr  # best for Replit; you may want to import logging
 log = lambda message: stderr.write(message + '\n')  # ...and connect this
 
 app = Flask(__name__)
+socketio = SocketIO(app)
 
 @app.route('/')  # redirect from / to /record
 def index():

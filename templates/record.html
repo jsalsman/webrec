@@ -293,20 +293,10 @@
             let length = event.data.recordingLength;
             console.log('Seconds Recorded: ' + length / 16000);
   
-            // Convert the floating point array buffer to audio/l16 PCM
-            let buffer = event.data.buffer[0];
-            let pcmData = new Uint8Array(length * 2);
-            for (let index = 0; index < length; ++index) {
-              let sample = buffer[index];
-              sample = sample * 32768.0;
-              sample = Math.max(-32768, Math.min(32767, sample));
-              pcmData[index * 2] = sample & 255; // low byte, little endian
-              pcmData[index * 2 + 1] = (sample >> 8) & 255; // high byte
-            }
-  
             // Put the raw PCM data in a blob and upload it
             let formData = new FormData();
-            let blob = new Blob([pcmData], { type: 'audio/l16' });
+            let blob = new Blob([event.data.buffer.slice(0, length * 2)],
+                                { type: 'audio/l16' });
             formData.append('audio', blob, 'audio.raw');            
             fetch('/upload-audio', {
               method: 'POST',
@@ -328,11 +318,13 @@
             stopRecording();
   
           // Set the duration meter
-          } else if (event.data.message === 'UPDATE_RECORDING_LENGTH') {
+          } else if (event.data.message === 'UPDATE_RECORDING') {
             let seconds = event.data.recordingLength / 16000
             document.getElementById('full').value = seconds.toFixed(2);
             document.getElementById('secs').textContent = 
               seconds.toFixed(1).padStart(4, '0');
+
+            // NEW: stream the latest chunk: event.data.bufferSlice
             
           // Set the audio level meter
           } else if (event.data.message === 'UPDATE_VISUALIZERS') {

@@ -8,9 +8,9 @@ class RecordingProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
 
-    this.sampleRate = 0;
+    this.sampleRate = 16000;
     this.maxRecordingFrames = 0;
-    this.numberOfChannels = 0;
+    this.numberOfChannels = 1;
 
     if (options && options.processorOptions) {
       const {
@@ -24,11 +24,12 @@ class RecordingProcessor extends AudioWorkletProcessor {
       this.numberOfChannels = numberOfChannels;
     }
 
-    this._recordingBuffer = new Array(this.numberOfChannels)
-        .fill(new Float32Array(this.maxRecordingFrames));
+    // Initialize _recordingBuffer as a Uint8Array
+    this._recordingBuffer = new Uint8Array(this.maxRecordingFrames * 2);
 
     this.recordedFrames = 0;
     this.isRecording = false;
+    this.lastSentFrame = 0;
 
     // We will use a timer to gate our messages; this one will publish at 30hz
     this.framesSinceLastPublish = 0;
@@ -55,26 +56,24 @@ class RecordingProcessor extends AudioWorkletProcessor {
   }
 
   process(inputs, outputs, params) {
-    for (let input = 0; input < 1; input++) {
-      for (let channel = 0; channel < this.numberOfChannels; channel++) {
-        for (let sample = 0; sample < inputs[input][channel].length; sample++) {
-          const currentSample = inputs[input][channel][sample];
+    // Assuming we are only interested in the first channel 0  // TODO: convert to mono properly
+    let inputBuffer = inputs[0][0];
+    for (let sample = 0; sample < inputBuffer.length; ++sample) {
+      let currentSample = inputBuffer[sample];
 
-          // Copy data to recording buffer.
-          if (this.isRecording) {
-            this._recordingBuffer[channel][sample+this.recordedFrames] =
-                currentSample;
-          }
-
-          // Pass data directly to output, unchanged.
-          outputs[input][channel][sample] = currentSample;
-
-          // Sum values for visualizer
-          this.sampleSum += Math.abs(currentSample);  // CHANGED to absolute values [0, 1]
-        }
+      if (this.isRecording) {
+        // Copy data to recording buffer
+        let signed16bits = Math.max(-32768, 
+                                    Math.min(32767, currentSample * 32768.0));
+        let index = (sample + this.recordedFrames) * 2;
+        this._recordingBuffer[index] = signed16bits & 255; // low byte, little endian
+        this._recordingBuffer[index + 1] = (signed16bits >> 8) & 255; // high
       }
+  
+      // Sum values for visualizer
+      this.sampleSum += Math.abs(currentSample);  // CHANGED to absolute values [0, 1]
     }
-
+      
     const shouldPublish = this.framesSinceLastPublish >= this.publishInterval;
 
     // Validate that recording hasn't reached its limit.
@@ -84,10 +83,16 @@ class RecordingProcessor extends AudioWorkletProcessor {
 
         // Post a recording recording length update on the clock's schedule
         if (shouldPublish) {
+          let bufferSlice = this._recordingBuffer.slice(
+            this.lastSentFrame * 2, this.recordedFrames * 2);
+
           this.port.postMessage({
-            message: 'UPDATE_RECORDING_LENGTH',
+            message: 'UPDATE_RECORDING',
             recordingLength: this.recordedFrames,
+            bufferSlice: bufferSlice,
           });
+
+          this.lastSentFrame = this.recordedFrames;
         }
       } else {
         // Let the rest of the app know the limit was reached.
