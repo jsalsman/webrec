@@ -32,6 +32,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="/static/microphone.png">
 
+  <!-- <script src="/socket.io/socket.io.js"></script> -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+
   <!-- Voice Activity Detection: @ricky0123/vad-web, see below -->
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.7/dist/bundle.min.js"></script>
@@ -153,16 +156,21 @@
       Noise supression (may degrade quality)</label></span>
   </div>
 
+  <!-- Socket.IO status and data -->
+  <span id='socketSpan'></span><span id='socketData'></span>
+
   <script>
     // Global variables
     var context, gotContext = false;  // Audio context for managing audio
     // Stream for audio data, AudioWorkletNode from recording-processing.js
     var stream, recorder = null, isRecording = false;  // and recording flag
-    // vad.MicVAD for Voice Activity Detection and Timeout for speech inactivity
-    var myvad, stopped_speaking_timeout = null;
+    // vad.MicVAD() Voice Activity Detection and Timeout for silence
+    var myvad, vad_timeout = null;
+    // Flag for if Socket.IO is streaming, and how many chunks and kilobytes
+    var socket = false, chunksStreamed = 0, streamedKB = 0;
   
     // Function executed when the window loads
-    window.onload = async function() {  
+//    window.onload = async function() {  
       // Check if the Web Audio API is supported by the browser
       if (!window.audioContext ) {
         try {
@@ -243,15 +251,15 @@
           // Send a message to reset the recording if already in progress
           recorder.port.postMessage({ message: 'UPDATE_RECORDING_STATE', 
                          setRecording: true });  // Reset samples to zero
-          clearTimeout(stopped_speaking_timeout);
+          clearTimeout(vad_timeout);
         }
       }
   
       // Event listener for the noise suppression checkbox
       document.getElementById('suppressNoise').addEventListener('change', 
                                                  setNoiseSuppression);
-  
-    }
+
+//    }
   
     // Function to initialize the audio recorder
     async function initRecorder() {
@@ -284,48 +292,120 @@
   
         // Connect the microphone source node to the recorder
         await micSourceNode.connect(recorder);
-  
+
+        try {
+          var mySocket = io();
+          mySocket.on('connect', function() {
+              socket = true;
+              document.getElementById('socketSpan').innerHTML =
+                '<br> Socket.IO available.';
+          });
+        } catch (e) {
+          console.log('Socket.IO failed to connect:', e)
+        }
+
         // Handle messages from audio worklet: /static/recording-processor.js
+        let chunkBuffer = [];
+        const chunkBufferSizeLimit = 8192;  // 8 KB
+
         recorder.port.onmessage = event => {
-  
-          if (event.data.message === 'SHARE_RECORDING_BUFFER') { 
-            // Recording ended, upload file
-            let length = event.data.recordingLength;
-            console.log('Seconds Recorded: ' + length / 16000);
-  
-            // Put the raw PCM data in a blob and upload it
-            let formData = new FormData();
-            let blob = new Blob([event.data.buffer.slice(0, length * 2)],
-                                { type: 'audio/l16' });
-            formData.append('audio', blob, 'audio.raw');            
-            fetch('/upload-audio', {
-              method: 'POST',
-              body: formData
-            }).then(response => {
-              if (response.ok) {
-                window.location.href = response.url;
-              }
-            }).catch(error => {
-              console.error('Upload error: ', e);
-              alert('Upload error: ' + e);
-              // Disallow further interaction
-              document.getElementById('start').disabled = true;
-              document.getElementById('startOver').disabled = true;
-            });
-  
-          // Stop the recording if the buffer is full
-          } else if (event.data.message === 'MAX_RECORDING_LENGTH_REACHED') {
-            stopRecording();
-  
-          // Set the duration meter
-          } else if (event.data.message === 'UPDATE_RECORDING') {
+
+          // Set the audio level meter and try to stream Socket.IO upload
+          if (event.data.message === 'UPDATE_RECORDING') {
             let seconds = event.data.recordingLength / 16000
             document.getElementById('full').value = seconds.toFixed(2);
             document.getElementById('secs').textContent = 
               seconds.toFixed(1).padStart(4, '0');
 
-            // NEW: stream the latest chunk: event.data.bufferSlice
-            
+            if (socket) {
+              // Add new samples to the chunk buffer
+              chunkBuffer.push(...event.data.bufferSlice);
+  
+              // Send the chunk if the buffer reaches the size limit
+              if (chunkBuffer.length >= chunkBufferSizeLimit) {
+                mySocket.emit('audio_chunk', new Uint8Array(chunkBuffer), 
+                            (status, error) => {
+                  if (status === 'fail') {
+                    socket = false; // Disable the socket on failure
+                    document.getElementById('socketSpan').innerHTML =
+                      '<br> Socket.IO failed.';
+                    document.getElementById('socketData').textContent = '';
+                    log('audio_chunk socket error: ' + error)
+                  }
+                });
+                
+                // Update and display progress information
+                chunksStreamed+= 1;
+                streamedKB += chunkBuffer.length / 1024; // Bytes to KB
+                document.getElementById('socketData').textContent =
+                  `Sent ${streamedKB.toFixed(0)} KB in ${chunksStreamed} KB.`;
+
+                chunkBuffer = []; // Clear the buffer after sending
+              }
+            }
+
+          // Recording ended, close socket or upload file
+          } else if (event.data.message === 'SHARE_RECORDING_BUFFER') { 
+            let length = event.data.recordingLength;
+            console.log('Seconds Recorded: ' + length / 16000);
+
+            // send the final bufferSlice
+            if (socket) {
+              if (chunkBuffer.length) {
+                mySocket.emit('audio_chunk', new Uint8Array(chunkBuffer), 
+                            (status, error) => {
+                  if (status === 'fail') {
+                    socket = false; // Disable the socket on failure
+                    log('audio_chunk socket error: ' + error)
+                  } else {
+                    // Update and display progress information
+                    chunksStreamed+= 1;
+                    streamedKB += chunkBuffer.length / 1024; // Convert bytes to KB
+                    document.getElementById('socketData').textContent =
+                      `Finished with ${streamedKB.toFixed(0)} KB in ${chunksStreamed} KB.`;
+                  }
+                })
+              }
+              mySocket.emit('end_recording', (status, error) => {
+                if (status === 'fail') {
+                  socket = false; // Disable the socket on failure
+                  log('end_recording socket error: ' + error)
+                } else if (status.startsWith('/playback/')) {
+                  window.location = status;
+                }
+              })
+            }
+
+            if (!socket) {
+              document.getElementById('socketSpan').innerHTML =
+                '<br> Socket.IO failed.';
+              document.getElementById('socketData').textContent = '';
+  
+              // Put the raw PCM data in a blob and upload it
+              let formData = new FormData();
+              let blob = new Blob([event.data.buffer.slice(0, length * 2)],
+                                  { type: 'audio/l16' });
+              formData.append('audio', blob, 'audio.raw');            
+              fetch('/upload-audio', {
+                method: 'POST',
+                body: formData
+              }).then(response => {
+                if (response.ok) {
+                  window.location.href = response.url;
+                }
+              }).catch(error => {
+                console.error('Upload error: ', error);
+                alert('Upload error: ' + error);
+                // Disallow further interaction
+                document.getElementById('start').disabled = true;
+                document.getElementById('startOver').disabled = true;
+              });
+            }
+    
+          // Stop the recording if the buffer is full
+          } else if (event.data.message === 'MAX_RECORDING_LENGTH_REACHED') {
+            stopRecording();
+  
           // Set the audio level meter
           } else if (event.data.message === 'UPDATE_VISUALIZERS') {
             let expKx = Math.exp(20 * event.data.gain);    // Don't ask me;
@@ -351,7 +431,7 @@
             //console.log('VAD: Speaking started');
             document.getElementById('vadSpan').textContent = 'Speech';
             document.getElementById('vadSpan').style.color = 'darkgreen';
-            clearTimeout(stopped_speaking_timeout);
+            clearTimeout(vad_timeout);
           },
           onSpeechEnd: (audio) => {
             //console.log('VAD: Speaking stopped');
@@ -360,10 +440,9 @@
             if (isRecording && document.getElementById('vad').checked) {
               silence_secs = document.querySelector(
                                         'input[name="sil_dur"]:checked').value;
-              stopped_speaking_timeout = setTimeout(stopRecording,
-                                                    silence_secs * 1000);
+              vad_timeout = setTimeout(stopRecording, silence_secs * 1000);
             } else {
-              clearTimeout(stopped_speaking_timeout);
+              clearTimeout(vad_timeout);
             }
           }
         });
@@ -401,7 +480,7 @@
       }
   
       function stopRecording() {
-        clearTimeout(stopped_speaking_timeout);
+        clearTimeout(vad_timeout);
         document.getElementById('start').disabled = true;
         document.getElementById('startOver').disabled = true;
         recorder.port.postMessage({ message: 'UPDATE_RECORDING_STATE', 

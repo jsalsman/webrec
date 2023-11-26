@@ -15,7 +15,8 @@ for comments and code.
 MIT license
 
 # TODO
-- streaming upload with WebSockets (in progress)
+- link, size, and duration on the playback page (in progress)
 - update screenshot and cover image with the noise supression checkbox
-- maybe companding with sox?
 - production WSGI server? Replit deployments might not be cross-platform
+- maybe companding with sox?
+- handle 2 channel stereo?

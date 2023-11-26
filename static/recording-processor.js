@@ -1,5 +1,6 @@
-// origin: https://googlechromelabs.github.io/web-audio-samples/audio-worklet/migration/worklet-recorder/
-
+// adapted from:
+// https://googlechromelabs.github.io/web-audio-samples/audio-worklet/migration/worklet-recorder/
+//
 // Copyright (c) 2022 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -25,15 +26,16 @@ class RecordingProcessor extends AudioWorkletProcessor {
     }
 
     // Initialize _recordingBuffer as a Uint8Array
-    this._recordingBuffer = new Uint8Array(this.maxRecordingFrames * 2);
+    this.recordingBuffer = new Uint8Array(this.maxRecordingFrames * 2);
 
     this.recordedFrames = 0;
     this.isRecording = false;
     this.lastSentFrame = 0;
 
     // We will use a timer to gate our messages; this one will publish at 30hz
-    this.framesSinceLastPublish = 0;
     this.publishInterval = this.sampleRate / 30;
+    this.framesSinceLastPublish = 0;
+    this.bufferSlice = null;  // streaming slices
 
     // We will keep a live sum for rendering the visualizer.
     this.sampleSum = 0;
@@ -43,20 +45,23 @@ class RecordingProcessor extends AudioWorkletProcessor {
         this.isRecording = event.data.setRecording;
 
         if (this.isRecording === false) {
+          this.bufferSlice = this.recordingBuffer.slice(
+            this.lastSentFrame * 2, this.recordedFrames * 2);
           this.port.postMessage({
             message: 'SHARE_RECORDING_BUFFER',
-            buffer: this._recordingBuffer,
-            recordingLength: this.recordedFrames, // ADDED
+            buffer: this.recordingBuffer,
+            recordingLength: this.recordedFrames,
+            bufferSlice: this.bufferSlice,
           });
         } else {
-          this.recordedFrames = 0; // RESET ON START to handle multiple sessions ADDED
+          this.recordedFrames = 0; // RESET ON START to handle multiple sessions
         }
       }
     };
   }
 
   process(inputs, outputs, params) {
-    // Assuming we are only interested in the first channel 0  // TODO: convert to mono properly
+    // Assuming we are only interested in the first channel 0  // TODO? convert to mono properly
     let inputBuffer = inputs[0][0];
     for (let sample = 0; sample < inputBuffer.length; ++sample) {
       let currentSample = inputBuffer[sample];
@@ -66,8 +71,8 @@ class RecordingProcessor extends AudioWorkletProcessor {
         let signed16bits = Math.max(-32768, 
                                     Math.min(32767, currentSample * 32768.0));
         let index = (sample + this.recordedFrames) * 2;
-        this._recordingBuffer[index] = signed16bits & 255; // low byte, little endian
-        this._recordingBuffer[index + 1] = (signed16bits >> 8) & 255; // high
+        this.recordingBuffer[index] = signed16bits & 255; // low byte, little endian
+        this.recordingBuffer[index + 1] = (signed16bits >> 8) & 255; // high
       }
   
       // Sum values for visualizer
@@ -83,13 +88,13 @@ class RecordingProcessor extends AudioWorkletProcessor {
 
         // Post a recording recording length update on the clock's schedule
         if (shouldPublish) {
-          let bufferSlice = this._recordingBuffer.slice(
+          this.bufferSlice = this.recordingBuffer.slice(
             this.lastSentFrame * 2, this.recordedFrames * 2);
 
           this.port.postMessage({
             message: 'UPDATE_RECORDING',
             recordingLength: this.recordedFrames,
-            bufferSlice: bufferSlice,
+            bufferSlice: this.bufferSlice,
           });
 
           this.lastSentFrame = this.recordedFrames;
@@ -99,7 +104,8 @@ class RecordingProcessor extends AudioWorkletProcessor {
         this.isRecording = false;
         this.port.postMessage({
           message: 'MAX_RECORDING_LENGTH_REACHED',
-          buffer: this._recordingBuffer,
+          buffer: this.recordingBuffer,
+          bufferSlice: this.bufferSlice,
         });
 
         this.recordedFrames += 128;
