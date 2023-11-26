@@ -12,6 +12,10 @@ from flask import Flask, request, render_template,  redirect, send_from_director
 import sox                     # needs command line sox and the pysox package
 from datetime import datetime  # for audio file timestamps
 import os                      # to delete old audio files
+from time import time          # to keep files less than 10 minutes old
+
+from sys import stderr  # best for Replit; you may want to import logging
+log = lambda message: stderr.write(message + '\n')  # ...and connect this
 
 app = Flask(__name__)
 
@@ -32,7 +36,7 @@ def upload_audio():
       return 'File too big', 400
     audio_file.seek(0)
 
-    timestamp = datetime.now().strftime("%M%S%f")[:10]  # MMSSssss
+    timestamp = datetime.now().strftime("%M%S%f")[:8]  # MMSSssss
     raw_filename = f"audio-{timestamp}.raw"
     wav_filename = f"audio-{timestamp}.wav"
 
@@ -48,16 +52,30 @@ def upload_audio():
     # https://pysox.readthedocs.io/en/latest/api.html#sox.transform.Transformer.silence
          
     tfm.build('static/' + raw_filename, 'static/' + wav_filename)
+    duration = sox.file_info.duration('static/' + wav_filename)
 
     # Clean up older files; maximum 40 MB will remain
     files = [os.path.join('static', f) for f in
-         os.listdir('static') if f.startswith('audio-')]
+       os.listdir('static') if f.startswith('audio-')]
     # Sort files by last modified time, oldest first
     files.sort(key=lambda x: os.path.getmtime(x))
+    current_time = time()
     # Remove all but the 10 most recent audio files
     for file in files[:-10]:
-      os.remove(file)
-
+      # Get the modification time of the file
+      mod_time = os.path.getmtime(file)
+      # Calculate the age of the file in seconds
+      file_age = current_time - mod_time
+      # Check if the file is older than 10 minutes
+      if file_age > 600:
+        os.remove(file)
+    audio_space = sum([os.path.getsize('static/' + f) 
+                       for f in os.listdir('static')
+                       if f.startswith('audio-')]) / (1024 ** 2)
+    
+    log(f'Built {wav_filename} ({duration:.1f} seconds.) ' +
+        f'All audio using {audio_space:.2f} MB.')
+  
     return redirect(f'/playback/{wav_filename}')
 
   return "No audio file", 400
@@ -80,3 +98,5 @@ for file in [os.path.join('static', f) for f in os.listdir('static')
   os.remove(file)
   
 app.run(host='0.0.0.0', port=81)
+# TODO: production WSGI server
+# see https://replit.com/talk/learn/How-to-set-up-production-environment-for-your-Flask-project-on-Replit/139169
