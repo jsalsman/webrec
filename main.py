@@ -9,15 +9,16 @@
 # github: https://github.com/jsalsman/webrec
 
 from flask import Flask, request, render_template,  redirect, send_from_directory
-from flask_socketio import SocketIO, emit  # Fails over to POST submissions
+from flask_socketio import SocketIO  # Fails over to POST submissions
 import sox                     # needs command line sox and the pysox package
 import lameenc                 # to produce .mp3 files for playback
 from datetime import datetime  # for audio file timestamps
 import os                      # to delete old audio files
 from time import time          # to keep files less than 10 minutes old
 
-from sys import stderr  # best for Replit; you may want to 'import logging'
-log = lambda message: stderr.write(message + '\n')  # ...and connect this
+from sys import stderr
+def log(message):  # best for Replit; you probably want to 'import logging'
+  stderr.write(message + '\n')  # ...and connect this body of log(m) instead
 
 app = Flask(__name__)
 socketio = SocketIO(app)  # Websocket
@@ -44,7 +45,7 @@ def upload_audio():
 
     audio_file.save('static/' + raw_filename)
 
-    return redirect(f'/playback/' + process_file(raw_filename))
+    return redirect('/playback/' + process_file(raw_filename))
 
   return "No audio file", 400
 
@@ -159,8 +160,9 @@ def websocket_end():
     log(f"Error ending websocket: {e}")
     return 'fail', repr(e)
 
-#app.run(host='0.0.0.0', port=81)
-socketio.run(app, host='0.0.0.0', port=81)
+#app.run(host='0.0.0.0', port=81)  # using Sockets.IO
+socketio.run(app, host='0.0.0.0', port=81, 
+             allow_unsafe_werkzeug=True)  # LOL: deployment promotion error workaround
 
 # TODO? production WSGI server
 # see https://replit.com/talk/learn/How-to-set-up-production-environment-for-your-Flask-project-on-Replit/139169
