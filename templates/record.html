@@ -365,7 +365,7 @@
               }
               mySocket.emit('end_recording', (status, error) => {
                 if (status === 'fail') {
-                  log('end_recording socket error: ' + error)
+                  console.log('end_recording socket error: ' + error)
                   socket = false; // Disable the socket on failure
                   mySocket.disconnect();
                   alert('Error ending recording: ' + error)

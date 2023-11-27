@@ -9,7 +9,7 @@
 # github: https://github.com/jsalsman/webrec
 
 from flask import (Flask, request, render_template,  redirect,
-                   send_from_directory, url_for)
+                   send_from_directory)
 from flask_socketio import SocketIO  # Fails over to POST submissions
 import sox                     # needs command line sox and the pysox package
 import lameenc                 # to produce .mp3 files for playback
@@ -22,7 +22,7 @@ def log(message):  # best for Replit; you probably want to 'import logging'
   stderr.write(message + '\n')  # ...and connect this body of log(m) instead
 
 app = Flask(__name__)
-socketio = SocketIO(app)  # Websocket
+socketio = SocketIO(app)  # Socket.IO server
 
 @app.route('/')  # redirect from / to /record
 def index():
@@ -132,8 +132,8 @@ for file in [os.path.join('static', f) for f in os.listdir('static')
   os.remove(file)
 
 # Socket.IO implementation
-active_streams = {}
-sid_to_filename = {}
+active_streams = {}   # Only using atomic dict operations
+sid_to_filename = {}  # ...in ways that are thread safe.
 
 @socketio.on('connect')
 def websocket_connect():
@@ -156,7 +156,7 @@ def socket_end():
     del sid_to_filename[request.sid]
     return '/playback/' + mp3_fn
   except Exception as e:
-    log(f"Error ending websocket: {e}")
+    log(f"Error ending recording: {e}")
     active_streams.pop(request.sid, None)   # del dict entries
     sid_to_filename.pop(request.sid, None)  # even if already del'd
     return 'fail', str(e)
