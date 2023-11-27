@@ -46,7 +46,8 @@ def upload_audio():
 
     audio_file.save('static/' + raw_filename)
 
-    return redirect('/playback/' + process_file(raw_filename))
+    return redirect('/playback/' +  # return new url to play
+                    process_file(raw_filename))  # see below
 
   return "No audio file", 400
 
@@ -61,9 +62,7 @@ def process_file(raw_filename):
   # https://pysox.readthedocs.io/en/latest/api.html#sox.transform.Transformer.silence
 
   #pcm = tfm.build_array('static/' + raw_filename)  # FAILS
-  # sox/transform.py", line 793, in build_array
-  #    encoding_out = [
-  # IndexError: list index out of range
+  # https://github.com/rabitt/pysox/issues/154
 
   tfm.build('static/' + raw_filename, 'static/tmp-' + raw_filename)
 
@@ -143,32 +142,28 @@ def websocket_connect():
 
 @socketio.on('audio_chunk')
 def websocket_chunk(data):
-  try:
-    if request.sid not in active_streams:
-      filename = sid_to_filename[request.sid]
-      active_streams[request.sid] = open(f'static/{filename}', 'wb')
-    active_streams[request.sid].write(data)
-  except Exception as e:
-    log(f"Error writing audio data: {e}")
-    return 'fail', repr(e)
+  if request.sid not in active_streams:
+    active_streams[request.sid] = open('static/' + 
+       sid_to_filename[request.sid], 'wb')
+  active_streams[request.sid].write(data)
 
 @socketio.on('end_recording')
-def websocket_end():
+def socket_end():
   try:
-    if request.sid in active_streams:
-      active_streams[request.sid].close()
-      filename = sid_to_filename[request.sid]
-      mp3_fn = process_file(filename)  # See above
-      del active_streams[request.sid]
-      del sid_to_filename[request.sid]
-      return '/playback/' + mp3_fn
+    active_streams[request.sid].close()
+    del active_streams[request.sid]
+    mp3_fn = process_file(sid_to_filename[request.sid])  # See above
+    del sid_to_filename[request.sid]
+    return '/playback/' + mp3_fn
   except Exception as e:
     log(f"Error ending websocket: {e}")
-    return 'fail', repr(e)
+    active_streams.pop(request.sid, None)   # del dict entries
+    sid_to_filename.pop(request.sid, None)  # even if already del'd
+    return 'fail', str(e)
 
 #app.run(host='0.0.0.0', port=81)  # using Sockets.IO
 socketio.run(app, host='0.0.0.0', port=81, 
-             allow_unsafe_werkzeug=True)  # LOL: deployment promotion error workaround
+             allow_unsafe_werkzeug=True)  # deployment error workaround
 
 # TODO? production WSGI server
 # see https://replit.com/talk/learn/How-to-set-up-production-environment-for-your-Flask-project-on-Replit/139169
