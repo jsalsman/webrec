@@ -15,7 +15,10 @@ for comments and code.
 MIT license
 
 # TODO
+- toggle for streaming
 - update screenshot and cover image with the noise supression checkbox
 - production WSGI server? Replit deployments might not be cross-platform
+- https://www.reddit.com/r/LocalLLaMA/comments/17yzr6l/coquiai_ttsv2_is_so_cool/
+  - https://huggingface.co/spaces/coqui/xtts
 - maybe companding with sox?
 - handle 2 channel stereo?
