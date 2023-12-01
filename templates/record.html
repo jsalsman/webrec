@@ -166,8 +166,10 @@
     var stream, recorder = null, isRecording = false;  // and recording flag
     // vad.MicVAD() Voice Activity Detection and Timeout for silence
     var myvad, vad_timeout = null;
-    // Flag for if Socket.IO is streaming, and how many chunks and kilobytes
-    var socket = false, chunksStreamed = 0, streamedKB = 0;
+    // Flag for if Socket.IO is streaming, the socket, and the buffer list
+    var socket = false, mySocket, chunkBuffer;
+    // How many chunks and kilobytes have been streamed so far
+    var chunksStreamed = 0, streamedKB = 0;
   
     // Check if the Web Audio API is supported by the browser
     if (!window.audioContext ) {
@@ -246,10 +248,15 @@
     // Event listener for the 'startOver' button
     document.getElementById('startOver').onclick = function() {
       if (recorder && isRecording) { 
+        clearTimeout(vad_timeout);
         // Send a message to reset the recording if already in progress
         recorder.port.postMessage({ message: 'UPDATE_RECORDING_STATE', 
                        setRecording: true });  // Reset samples to zero
-        clearTimeout(vad_timeout);
+        // Tell the streaming server to start over too
+        if (socket) {
+          chunkBuffer = [];
+          mySocket.emit('start_over');
+        }
       }
     }
 
@@ -290,7 +297,7 @@
         await micSourceNode.connect(recorder);
 
         try {
-          var mySocket = io();
+          mySocket = io();
           mySocket.on('connect', function() {
               socket = true;
               document.getElementById('socketSpan').innerHTML =
@@ -301,7 +308,7 @@
         }
 
         // Handle messages from audio worklet: /static/recording-processor.js
-        let chunkBuffer = [];
+        chunkBuffer = [];
         const chunkBufferSizeLimit = 8192;  // 8 KB
 
         recorder.port.onmessage = event => {

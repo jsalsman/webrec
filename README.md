@@ -15,8 +15,6 @@ for comments and code.
 MIT license
 
 # TODO
-- MAKE START OVER WORK STREAMING
-
 - automatic gain control
 - toggle for streaming
 - update screenshot and cover image with the noise supression checkbox

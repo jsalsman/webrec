@@ -161,6 +161,13 @@ def socket_end():
     sid_to_filename.pop(request.sid, None)  # even if already del'd
     return 'fail', str(e)
 
+@socketio.on('start_over')
+def start_over():
+  if request.sid in active_streams:
+    log('**STARTING OVER***')
+    active_streams[request.sid].seek(0)     # start again at the beginning
+    active_streams[request.sid].truncate()  # clear existing data to overwrite
+
 #app.run(host='0.0.0.0', port=81)  # using Sockets.IO
 socketio.run(app, host='0.0.0.0', port=81, 
              allow_unsafe_werkzeug=True)  # deployment error workaround
